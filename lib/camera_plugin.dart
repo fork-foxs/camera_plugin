@@ -15,7 +15,7 @@ class CameraController {
 
   /// Initialize camera controller and check permissions
   /// Throws [CameraPermissionException] if camera permission is not granted
-  static Future<void> initialize() async {
+   Future<void> initialize() async {
     final status = await Permission.camera.status;
 
     if (status.isDenied  ) {
