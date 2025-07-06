@@ -33,7 +33,7 @@ class CameraController {
   /// Starts listening to the native stream.
   Stream<Uint8List> get frames {
     if (!_isInitialized) {
-      throw CameraPermissionException('Camera must be initialized before accessing frames. Call init() first.');
+      throw CameraPermissionException('Camera must be initialized before accessing frames. Call initialize() first.');
     }
     _frameStream ??= _events.receiveBroadcastStream().map(
       (event) => event as Uint8List,

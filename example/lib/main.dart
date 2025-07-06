@@ -1,6 +1,7 @@
 import 'package:camera_plugin/camera_plugin.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:typed_data';
 
 void main() {
   runApp(const MyApp());
@@ -35,6 +36,12 @@ class _MyHomePageState extends State<MyHomePage> {
   String _selectedQuality = 'High';
   bool _useMaxQuality = false;
 
+  // --- Image Preview State ---
+  Uint8List? _currentImageBytes;
+  bool _isShowingPreview = false; 
+  int _currentImageIndex = 0;
+  bool _isProcessingImages = false;
+
   // --- Camera Options ---
   final List<String> _resolutions = [
     '640x480',
@@ -57,9 +64,14 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     _requestCameraPermission();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.frames.listen((event) {
-        // print('frame:  [38;5;10m${event.length / 1024 / 1024} MB [0m');
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await controller.initialize();
+      controller.frames.listen((imageBytes) async {
+       
+        // بدء معالجة الصور إذا لم تكن قيد المعالجة
+       
+          _processImageQueue(imageBytes);
+         
       });
     });
   }
@@ -97,6 +109,30 @@ class _MyHomePageState extends State<MyHomePage> {
         );
       },
     );
+  }
+
+  void _processImageQueue(Uint8List imageBytes) async {
+      if(_isProcessingImages) return;
+
+    _isProcessingImages = true;
+
+   
+    
+      setState(() {
+        print('imageQueue: ${imageBytes!.length / 1024 / 1024} MB');
+        _currentImageBytes = imageBytes;
+        _isShowingPreview = true;
+      });
+
+      // انتظار ثانيتين قبل عرض الصورة التالية
+      await Future.delayed(Duration(seconds: 2));
+   
+
+    setState(() {
+      _isShowingPreview = false;
+      
+      _isProcessingImages = false;
+    });
   }
 
   void _toggleFlash() {
@@ -188,7 +224,63 @@ class _MyHomePageState extends State<MyHomePage> {
           _hasCameraPermission
               ? Stack(
                 children: [
+                  // عرض معاينة الكاميرا
                   CameraPreview(controller: controller),
+
+                  // عرض الصورة في الزاوية العلوية اليسرى
+                  if ( _currentImageBytes != null)
+                    Positioned(
+                      top: 20,
+                      left: 20,
+                      child: Container(
+                        width: 120,
+                        height: 90,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Image.memory(
+                            _currentImageBytes!,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // مؤشر المعاينة
+                  if (_isShowingPreview)
+                    Positioned(
+                      top: 20,
+                      right: 20,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: Text(
+                          'معاينة',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+
                   Positioned(
                     bottom: 20,
                     left: 20,

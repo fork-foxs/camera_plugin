@@ -179,22 +179,30 @@ class CameraPreview(
   }
 
   private fun toJpeg(image: ImageProxy): ByteArray {
-    val y = image.planes[0].buffer
+   val y = image.planes[0].buffer
     val u = image.planes[1].buffer
     val v = image.planes[2].buffer
-    val nv21 = ByteArray(y.remaining() + u.remaining() + v.remaining()).apply {
-      y.get(this, 0, y.remaining())
-      v.get(this, y.remaining(), v.remaining())
-      u.get(this, y.remaining() + v.remaining(), u.remaining())
+    val ySize = y.remaining()
+    val uSize = u.remaining()
+    val vSize = v.remaining()
+
+    val nv21 = ByteArray(ySize + uSize + vSize).apply {
+      y.get(this, 0, ySize)
+      v.get(this, ySize, vSize)
+      u.get(this, ySize + vSize, uSize)
     }
+
     val yuv = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
-    val rawOut = ByteArrayOutputStream().apply {
+    val out = ByteArrayOutputStream().apply {
       yuv.compressToJpeg(Rect(0, 0, image.width, image.height), quality, this)
     }
-    val raw  = rawOut.toByteArray()
-    val bmp  = BitmapFactory.decodeByteArray(raw, 0, raw.size)
-    val rot  = Matrix().apply { postRotate(90f) }
-    val rotated = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, rot, true)
+    val raw = out.toByteArray()
+    val bmp = BitmapFactory.decodeByteArray(raw, 0, raw.size)
+    val rotated = Bitmap.createBitmap(
+      bmp, 0, 0, bmp.width, bmp.height,
+      Matrix().apply { postRotate(90f) },
+      true
+    )
     return ByteArrayOutputStream().also {
       rotated.compress(Bitmap.CompressFormat.JPEG, quality, it)
     }.toByteArray()
