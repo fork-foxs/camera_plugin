@@ -178,33 +178,70 @@ class CameraPreview(
     executor.shutdown()
   }
 
-  private fun toJpeg(image: ImageProxy): ByteArray {
-   val y = image.planes[0].buffer
-    val u = image.planes[1].buffer
-    val v = image.planes[2].buffer
-    val ySize = y.remaining()
-    val uSize = u.remaining()
-    val vSize = v.remaining()
+ private fun toJpeg(image: ImageProxy): ByteArray {
+    val nv21 = yuv420888ToNv21(image)
 
-    val nv21 = ByteArray(ySize + uSize + vSize).apply {
-      y.get(this, 0, ySize)
-      v.get(this, ySize, vSize)
-      u.get(this, ySize + vSize, uSize)
-    }
+    val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
+    val jpegOutput = ByteArrayOutputStream()
+    yuvImage.compressToJpeg(Rect(0, 0, image.width, image.height), quality, jpegOutput)
 
-    val yuv = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
-    val out = ByteArrayOutputStream().apply {
-      yuv.compressToJpeg(Rect(0, 0, image.width, image.height), quality, this)
-    }
-    val raw = out.toByteArray()
-    val bmp = BitmapFactory.decodeByteArray(raw, 0, raw.size)
-    val rotated = Bitmap.createBitmap(
-      bmp, 0, 0, bmp.width, bmp.height,
-      Matrix().apply { postRotate(90f) },
-      true
+    val jpegBytes = jpegOutput.toByteArray()
+    val bitmap = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
+
+    val rotatedBitmap = Bitmap.createBitmap(
+        bitmap, 0, 0, bitmap.width, bitmap.height,
+        Matrix().apply { postRotate(90f) },
+        true
     )
+
     return ByteArrayOutputStream().also {
-      rotated.compress(Bitmap.CompressFormat.JPEG, quality, it)
+        rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, quality, it)
     }.toByteArray()
-  }
+}
+
+private fun yuv420888ToNv21(image: ImageProxy): ByteArray {
+    val width = image.width
+    val height = image.height
+    val ySize = width * height
+    val uvSize = width * height / 2
+    val nv21 = ByteArray(ySize + uvSize)
+
+    val yBuffer = image.planes[0].buffer
+    val uBuffer = image.planes[1].buffer
+    val vBuffer = image.planes[2].buffer
+
+    val yRowStride = image.planes[0].rowStride
+    val uRowStride = image.planes[1].rowStride
+    val vRowStride = image.planes[2].rowStride
+    val uPixelStride = image.planes[1].pixelStride
+    val vPixelStride = image.planes[2].pixelStride
+
+    // Copy Y channel
+    var pos = 0
+    for (row in 0 until height) {
+        yBuffer.position(row * yRowStride)
+        yBuffer.get(nv21, pos, width)
+        pos += width
+    }
+
+    // Interleave V and U into NV21 format (VU order)
+    var offset = ySize
+    val chromaHeight = height / 2
+    val chromaWidth = width / 2
+
+    for (row in 0 until chromaHeight) {
+        val vRowStart = row * vRowStride
+        val uRowStart = row * uRowStride
+        for (col in 0 until chromaWidth) {
+            val vIndex = vRowStart + col * vPixelStride
+            val uIndex = uRowStart + col * uPixelStride
+            nv21[offset++] = vBuffer.get(vIndex) // V
+            nv21[offset++] = uBuffer.get(uIndex) // U
+        }
+    }
+
+    return nv21
+}
+
+
 }
