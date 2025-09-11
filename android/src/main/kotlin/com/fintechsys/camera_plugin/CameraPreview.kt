@@ -135,7 +135,7 @@ class CameraPreview(
           .setResolutionStrategy(
             ResolutionStrategy(
               Size(width, height),
-              ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER
             )
           )
           .build()
