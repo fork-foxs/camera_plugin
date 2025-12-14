@@ -1,7 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:camera_plugin/camera_plugin.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:typed_data';
 
 void main() {
   runApp(const MyApp());
@@ -35,11 +36,11 @@ class _MyHomePageState extends State<MyHomePage> {
   String _selectedResolution = '1920x1080';
   String _selectedQuality = 'High';
   bool _useMaxQuality = false;
+  CameraType _selectedCameraType = CameraType.front;
 
   // --- Image Preview State ---
   Uint8List? _currentImageBytes;
-  bool _isShowingPreview = false; 
-  int _currentImageIndex = 0;
+  bool _isShowingPreview = false;
   bool _isProcessingImages = false;
 
   // --- Camera Options ---
@@ -67,11 +68,9 @@ class _MyHomePageState extends State<MyHomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await controller.initialize();
       controller.frames.listen((imageBytes) async {
-       
         // بدء معالجة الصور إذا لم تكن قيد المعالجة
-       
-          _processImageQueue(imageBytes);
-         
+
+        _processImageQueue(imageBytes);
       });
     });
   }
@@ -112,25 +111,22 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _processImageQueue(Uint8List imageBytes) async {
-      if(_isProcessingImages) return;
+    if (_isProcessingImages) return;
 
     _isProcessingImages = true;
 
-   
-    
-      setState(() {
-        print('imageQueue: ${imageBytes!.length / 1024 / 1024} MB');
-        _currentImageBytes = imageBytes;
-        _isShowingPreview = true;
-      });
+    setState(() {
+      print('imageQueue: ${imageBytes.length / 1024 / 1024} MB');
+      _currentImageBytes = imageBytes;
+      _isShowingPreview = true;
+    });
 
-      // انتظار ثانيتين قبل عرض الصورة التالية
-      await Future.delayed(Duration(seconds: 2));
-   
+    // انتظار ثانيتين قبل عرض الصورة التالية
+    await Future.delayed(Duration(seconds: 2));
 
     setState(() {
       _isShowingPreview = false;
-      
+
       _isProcessingImages = false;
     });
   }
@@ -144,6 +140,15 @@ class _MyHomePageState extends State<MyHomePage> {
     } else {
       controller.turnOffFlash();
     }
+  }
+
+  void _switchCamera() {
+    setState(() {
+      _selectedCameraType =
+          _selectedCameraType == CameraType.macroBack
+              ? CameraType.front
+              : CameraType.macroBack;
+    });
   }
 
   void _showSettingsBottomSheet() {
@@ -160,6 +165,7 @@ class _MyHomePageState extends State<MyHomePage> {
           qualityValues: _qualityValues,
           selectedResolution: _selectedResolution,
           selectedQuality: _selectedQuality,
+          selectedCameraType: _selectedCameraType,
           onResolutionChanged:
               (res) => setState(() => _selectedResolution = res),
           onQualityChanged:
@@ -167,6 +173,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 _selectedQuality = q;
                 _useMaxQuality = q == 'Maximum';
               }),
+          onCameraTypeChanged:
+              (type) => setState(() => _selectedCameraType = type),
           onApply: () {
             controller.changeResolution(
               width: int.parse(_selectedResolution.split('x')[0]),
@@ -225,10 +233,13 @@ class _MyHomePageState extends State<MyHomePage> {
               ? Stack(
                 children: [
                   // عرض معاينة الكاميرا
-                  CameraPreview(controller: controller),
+                  CameraPreview(
+                    controller: controller,
+                    cameraType: _selectedCameraType,
+                  ),
 
                   // عرض الصورة في الزاوية العلوية اليسرى
-                  if ( _currentImageBytes != null)
+                  if (_currentImageBytes != null)
                     Positioned(
                       top: 20,
                       left: 20,
@@ -298,6 +309,18 @@ class _MyHomePageState extends State<MyHomePage> {
                         ),
                         SizedBox(height: 10),
                         FloatingActionButton(
+                          heroTag: "camera_switch",
+                          onPressed: _switchCamera,
+                          backgroundColor: Colors.purple,
+                          child: Icon(
+                            _selectedCameraType == CameraType.front
+                                ? Icons.camera_front
+                                : Icons.camera_rear,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                        FloatingActionButton(
                           heroTag: "settings",
                           onPressed: _showSettingsBottomSheet,
                           backgroundColor: Colors.blue,
@@ -314,6 +337,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       quality: _selectedQuality,
                       qualityValues: _qualityValues,
                       qualities: _qualities,
+                      cameraType: _selectedCameraType,
                     ),
                   ),
                 ],
@@ -351,8 +375,10 @@ class CameraSettingsSheet extends StatelessWidget {
   final List<int> qualityValues;
   final String selectedResolution;
   final String selectedQuality;
+  final CameraType selectedCameraType;
   final ValueChanged<String> onResolutionChanged;
   final ValueChanged<String> onQualityChanged;
+  final ValueChanged<CameraType> onCameraTypeChanged;
   final VoidCallback onApply;
 
   const CameraSettingsSheet({
@@ -362,8 +388,10 @@ class CameraSettingsSheet extends StatelessWidget {
     required this.qualityValues,
     required this.selectedResolution,
     required this.selectedQuality,
+    required this.selectedCameraType,
     required this.onResolutionChanged,
     required this.onQualityChanged,
+    required this.onCameraTypeChanged,
     required this.onApply,
   });
 
@@ -442,6 +470,49 @@ class CameraSettingsSheet extends StatelessWidget {
               },
             ),
           ),
+          SizedBox(height: 20),
+          Text(
+            'Camera Type',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: ChoiceChip(
+                  label: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.camera_rear, size: 18),
+                      SizedBox(width: 5),
+                      Text('Macro Back'),
+                    ],
+                  ),
+                  selected: selectedCameraType == CameraType.macroBack,
+                  onSelected: (selected) {
+                    if (selected) onCameraTypeChanged(CameraType.macroBack);
+                  },
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: ChoiceChip(
+                  label: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.camera_front, size: 18),
+                      SizedBox(width: 5),
+                      Text('Front'),
+                    ],
+                  ),
+                  selected: selectedCameraType == CameraType.front,
+                  onSelected: (selected) {
+                    if (selected) onCameraTypeChanged(CameraType.front);
+                  },
+                ),
+              ),
+            ],
+          ),
           SizedBox(height: 30),
           SizedBox(
             width: double.infinity,
@@ -468,12 +539,14 @@ class CameraStatusBadge extends StatelessWidget {
   final String quality;
   final List<int> qualityValues;
   final List<String> qualities;
+  final CameraType cameraType;
   const CameraStatusBadge({
     super.key,
     required this.resolution,
     required this.quality,
     required this.qualityValues,
     required this.qualities,
+    required this.cameraType,
   });
   @override
   Widget build(BuildContext context) {
@@ -493,6 +566,11 @@ class CameraStatusBadge extends StatelessWidget {
           SizedBox(height: 5),
           Text(
             'Quality: ${quality == 'Maximum' ? 'Maximum' : '${qualityValues[qualities.indexOf(quality)]}%'}',
+            style: TextStyle(color: Colors.white, fontSize: 12),
+          ),
+          SizedBox(height: 5),
+          Text(
+            'Camera: ${cameraType == CameraType.front ? 'Front' : 'Macro Back'}',
             style: TextStyle(color: Colors.white, fontSize: 12),
           ),
         ],

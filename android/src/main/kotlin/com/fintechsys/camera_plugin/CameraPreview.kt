@@ -34,7 +34,8 @@ class CameraPreview(
   private var width: Int,
   private var height: Int,
   private var quality: Int,
-  private var useMaxResolution: Boolean
+  private var useMaxResolution: Boolean,
+  private var cameraType: String
 ) : PlatformView {
 
   private val previewView = PreviewView(plugin.activity)
@@ -69,15 +70,34 @@ class CameraPreview(
   }
 
   private fun chooseCamera(): CameraSelector {
-    findMacroCameraId()?.let { macroId ->
-      return CameraSelector.Builder()
-        .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-        .addCameraFilter { infos ->
-          infos.filter { Camera2CameraInfo.from(it).cameraId == macroId }
+    when (cameraType) {
+      "front" -> {
+        return CameraSelector.DEFAULT_FRONT_CAMERA
+      }
+      "macroBack" -> {
+        findMacroCameraId()?.let { macroId ->
+          return CameraSelector.Builder()
+            .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+            .addCameraFilter { infos ->
+              infos.filter { Camera2CameraInfo.from(it).cameraId == macroId }
+            }
+            .build()
         }
-        .build()
+        return CameraSelector.DEFAULT_BACK_CAMERA
+      }
+      else -> {
+        // Default to macro back camera behavior
+        findMacroCameraId()?.let { macroId ->
+          return CameraSelector.Builder()
+            .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+            .addCameraFilter { infos ->
+              infos.filter { Camera2CameraInfo.from(it).cameraId == macroId }
+            }
+            .build()
+        }
+        return CameraSelector.DEFAULT_BACK_CAMERA
+      }
     }
-    return CameraSelector.DEFAULT_BACK_CAMERA
   }
 
   private fun findMacroCameraId(): String? {
@@ -188,11 +208,21 @@ class CameraPreview(
     val jpegBytes = jpegOutput.toByteArray()
     val bitmap = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
 
-    val rotatedBitmap = Bitmap.createBitmap(
-        bitmap, 0, 0, bitmap.width, bitmap.height,
-        Matrix().apply { postRotate(90f) },
-        true
-    )
+    val rotatedBitmap = if (cameraType == "front") {
+      // Rotate front camera images by -90 degrees
+      Bitmap.createBitmap(
+          bitmap, 0, 0, bitmap.width, bitmap.height,
+          Matrix().apply { postRotate(-90f) },
+          true
+      )
+    } else {
+      // Rotate back camera images by 90 degrees
+      Bitmap.createBitmap(
+          bitmap, 0, 0, bitmap.width, bitmap.height,
+          Matrix().apply { postRotate(90f) },
+          true
+      )
+    }
 
     return ByteArrayOutputStream().also {
         rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, quality, it)

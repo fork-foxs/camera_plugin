@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
@@ -15,17 +15,19 @@ class CameraController {
 
   /// Initialize camera controller and check permissions
   /// Throws [CameraPermissionException] if camera permission is not granted
-   Future<void> initialize() async {
+  Future<void> initialize() async {
     final status = await Permission.camera.status;
 
-    if (status.isDenied  ) {
+    if (status.isDenied) {
       throw CameraPermissionException(
         'Camera permission is required to use this feature',
       );
     }
 
     if (status.isPermanentlyDenied) {
-      throw CameraPermissionException('Camera permission is permanently denied. Please enable it in app settings.');
+      throw CameraPermissionException(
+        'Camera permission is permanently denied. Please enable it in app settings.',
+      );
     }
     _isInitialized = true;
   }
@@ -33,7 +35,9 @@ class CameraController {
   /// Starts listening to the native stream.
   Stream<Uint8List> get frames {
     if (!_isInitialized) {
-      throw CameraPermissionException('Camera must be initialized before accessing frames. Call initialize() first.');
+      throw CameraPermissionException(
+        'Camera must be initialized before accessing frames. Call initialize() first.',
+      );
     }
     _frameStream ??= _events.receiveBroadcastStream().map(
       (event) => event as Uint8List,
@@ -67,10 +71,14 @@ class CameraPermissionException implements Exception {
   String toString() => 'CameraPermissionException: $message';
 }
 
+/// Enum to specify which camera to use
+enum CameraType { macroBack, front }
+
 class CameraPreview extends StatefulWidget {
   final CameraController controller;
   final int initialWidth, initialHeight, initialQuality;
   final bool useMaxResolution;
+  final CameraType cameraType;
 
   const CameraPreview({
     super.key,
@@ -79,6 +87,7 @@ class CameraPreview extends StatefulWidget {
     this.initialHeight = 420,
     this.initialQuality = 100,
     this.useMaxResolution = false,
+    this.cameraType = CameraType.macroBack,
   });
 
   @override
@@ -86,12 +95,14 @@ class CameraPreview extends StatefulWidget {
 }
 
 class _CameraPreviewState extends State<CameraPreview> {
- 
- 
   @override
   Widget build(BuildContext context) {
     if (!CameraController._isInitialized) {
-      return const Center(child: Text('Camera must be initialized before accessing frames. Call init() first.'));
+      return const Center(
+        child: Text(
+          'Camera must be initialized before accessing frames. Call init() first.',
+        ),
+      );
     }
 
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -117,6 +128,7 @@ class _CameraPreviewState extends State<CameraPreview> {
                   'resolutionHeight': widget.initialHeight,
                   'resolutionQuality': widget.initialQuality,
                   'maxResolution': widget.useMaxResolution,
+                  'cameraType': widget.cameraType.name,
                 },
                 layoutDirection: TextDirection.ltr,
                 creationParamsCodec: const StandardMessageCodec(),

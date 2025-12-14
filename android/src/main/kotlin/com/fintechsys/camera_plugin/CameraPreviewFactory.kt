@@ -16,6 +16,7 @@ class CameraPreviewFactory(
     val h      = params?.get("resolutionHeight") as? Int     ?: 420
     val q      = params?.get("resolutionQuality")as? Int     ?: 100
     val useMax = params?.get("maxResolution")    as? Boolean ?: false
-    return CameraPreview(plugin, w, h, q, useMax)
+    val camType = params?.get("cameraType")      as? String   ?: "macroBack"
+    return CameraPreview(plugin, w, h, q, useMax, camType)
   }
 }
