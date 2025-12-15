@@ -75,7 +75,7 @@ class CameraPermissionException implements Exception {
 enum CameraType { macroBack, front }
 
 /// Enum to specify frame format
-enum FrameFormat { jpeg, yuv420888 }
+enum FrameFormat { jpeg, nv21 }
 
 class CameraPreview extends StatefulWidget {
   final CameraController controller;
