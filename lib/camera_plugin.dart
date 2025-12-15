@@ -74,11 +74,15 @@ class CameraPermissionException implements Exception {
 /// Enum to specify which camera to use
 enum CameraType { macroBack, front }
 
+/// Enum to specify frame format
+enum FrameFormat { jpeg, yuv420888 }
+
 class CameraPreview extends StatefulWidget {
   final CameraController controller;
   final int initialWidth, initialHeight, initialQuality;
   final bool useMaxResolution;
   final CameraType cameraType;
+  final FrameFormat frameFormat;
 
   const CameraPreview({
     super.key,
@@ -88,6 +92,7 @@ class CameraPreview extends StatefulWidget {
     this.initialQuality = 100,
     this.useMaxResolution = false,
     this.cameraType = CameraType.macroBack,
+    this.frameFormat = FrameFormat.jpeg,
   });
 
   @override
@@ -129,6 +134,7 @@ class _CameraPreviewState extends State<CameraPreview> {
                   'resolutionQuality': widget.initialQuality,
                   'maxResolution': widget.useMaxResolution,
                   'cameraType': widget.cameraType.name,
+                  'frameFormat': widget.frameFormat.name,
                 },
                 layoutDirection: TextDirection.ltr,
                 creationParamsCodec: const StandardMessageCodec(),

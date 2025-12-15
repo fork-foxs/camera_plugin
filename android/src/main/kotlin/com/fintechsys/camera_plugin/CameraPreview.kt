@@ -35,7 +35,8 @@ class CameraPreview(
   private var height: Int,
   private var quality: Int,
   private var useMaxResolution: Boolean,
-  private var cameraType: String
+  private var cameraType: String,
+  private val frameFormat: String
 ) : PlatformView {
 
   private val previewView = PreviewView(plugin.activity)
@@ -164,7 +165,12 @@ class CameraPreview(
       .build()
       .also { useCase ->
         useCase.setAnalyzer(executor) { image ->
-          plugin.sendFrame(toJpeg(image))
+          val frameData = if (frameFormat == "yuv420888") {
+            toYuv420888(image)
+          } else {
+            toJpeg(image)
+          }
+          plugin.sendFrame(frameData)
           image.close()
         }
       }
@@ -273,5 +279,58 @@ private fun yuv420888ToNv21(image: ImageProxy): ByteArray {
     return nv21
 }
 
+private fun toYuv420888(image: ImageProxy): ByteArray {
+    val width = image.width
+    val height = image.height
+    val ySize = width * height
+    val uvSize = width * height / 4  // U and V planes are each 1/4 the size of Y
+    
+    val yBuffer = image.planes[0].buffer.duplicate()
+    val uBuffer = image.planes[1].buffer.duplicate()
+    val vBuffer = image.planes[2].buffer.duplicate()
+    
+    val yRowStride = image.planes[0].rowStride
+    val uRowStride = image.planes[1].rowStride
+    val vRowStride = image.planes[2].rowStride
+    val uPixelStride = image.planes[1].pixelStride
+    val vPixelStride = image.planes[2].pixelStride
+    
+    // Create output array: Y plane + U plane + V plane
+    val output = ByteArray(ySize + uvSize * 2)
+    
+    // Copy Y plane
+    var pos = 0
+    for (row in 0 until height) {
+        yBuffer.position(row * yRowStride)
+        yBuffer.get(output, pos, width)
+        pos += width
+    }
+    
+    // Copy U plane
+    val uHeight = height / 2
+    val uWidth = width / 2
+    for (row in 0 until uHeight) {
+        val uRowStart = row * uRowStride
+        for (col in 0 until uWidth) {
+            val uIndex = uRowStart + col * uPixelStride
+            uBuffer.position(uIndex)
+            output[pos++] = uBuffer.get()
+        }
+    }
+    
+    // Copy V plane
+    val vHeight = height / 2
+    val vWidth = width / 2
+    for (row in 0 until vHeight) {
+        val vRowStart = row * vRowStride
+        for (col in 0 until vWidth) {
+            val vIndex = vRowStart + col * vPixelStride
+            vBuffer.position(vIndex)
+            output[pos++] = vBuffer.get()
+        }
+    }
+    
+    return output
+}
 
 }
