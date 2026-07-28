@@ -116,7 +116,7 @@ class _MyHomePageState extends State<MyHomePage> {
     _isProcessingImages = true;
 
     setState(() {
-      print('imageQueue: ${imageBytes.length / 1024 / 1024} MB');
+      debugPrint('imageQueue: ${imageBytes.length / 1024 / 1024} MB');
       _currentImageBytes = imageBytes;
       _isShowingPreview = true;
     });

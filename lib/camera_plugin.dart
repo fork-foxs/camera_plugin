@@ -7,6 +7,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'camera_plugin_platform_interface.dart';
+
+class CameraPlugin {
+  Future<String?> getPlatformVersion() {
+    return CameraPluginPlatform.instance.getPlatformVersion();
+  }
+}
+
 class CameraController {
   static const _method = MethodChannel('camera_control');
   static const _events = EventChannel('camera_stream');

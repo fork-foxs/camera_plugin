@@ -1,41 +1,21 @@
 group = "com.fintechsys.camera_plugin"
 version = "1.0-SNAPSHOT"
 
-buildscript {
-    ext.kotlin_version = "1.8.22"
-    repositories {
-        google()
-        mavenCentral()
-    }
-
-    dependencies {
-        classpath("com.android.tools.build:gradle:8.7.0")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
-    }
-}
-
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
 apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 
 android {
     namespace = "com.fintechsys.camera_plugin"
 
-    compileSdk = 35
+    compileSdk = 36
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11
+        jvmTarget = "17"
     }
 
     sourceSets {
@@ -49,7 +29,7 @@ android {
 
     dependencies {
         testImplementation("org.jetbrains.kotlin:kotlin-test")
-        testImplementation("org.mockito:mockito-core:5.0.0")
+        testImplementation("org.mockito:mockito-core:5.15.2")
     }
 
     testOptions {
@@ -64,11 +44,12 @@ android {
         }
     }
 }
-def camerax_version = "1.4.2"  // or 1.5.0-beta01 if you need the beta
+
+def camerax_version = "1.5.0"
 
 dependencies {
-    // core-ktx (optional, but good to have)
-    implementation "androidx.core:core-ktx:1.10.1"
+    // core-ktx
+    implementation "androidx.core:core-ktx:1.16.0"
 
     // CameraX modules — all at the same version
     implementation "androidx.camera:camera-core:$camerax_version"
@@ -79,10 +60,9 @@ dependencies {
     implementation "androidx.camera:camera-extensions:$camerax_version"
 
     // other deps
-    implementation "com.google.guava:guava:31.1-android"
+    implementation "com.google.guava:guava:33.4.0-android"
 
     // tests
     testImplementation "org.jetbrains.kotlin:kotlin-test"
-    testImplementation "org.mockito:mockito-core:5.0.0"
+    testImplementation "org.mockito:mockito-core:5.15.2"
 }
-
