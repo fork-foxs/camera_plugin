@@ -64,25 +64,18 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    _requestCameraPermission();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await controller.initialize();
-      controller.frames.listen((imageBytes) async {
-        // بدء معالجة الصور إذا لم تكن قيد المعالجة
-
-        _processImageQueue(imageBytes);
-      });
+      try {
+        await controller.initialize();
+        setState(() => _hasCameraPermission = true);
+        controller.frames.listen((imageBytes) async {
+          _processImageQueue(imageBytes);
+        });
+      } on CameraPermissionException {
+        setState(() => _hasCameraPermission = false);
+        _showPermissionDeniedDialog();
+      }
     });
-  }
-
-  Future<void> _requestCameraPermission() async {
-    final status = await Permission.camera.request();
-    setState(() {
-      _hasCameraPermission = status.isGranted;
-    });
-    if (!status.isGranted) {
-      _showPermissionDeniedDialog();
-    }
   }
 
   void _showPermissionDeniedDialog() {
@@ -359,7 +352,18 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                     SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: _requestCameraPermission,
+                      onPressed: () async {
+                        try {
+                          await controller.initialize();
+                          setState(() => _hasCameraPermission = true);
+                          controller.frames.listen((imageBytes) async {
+                            _processImageQueue(imageBytes);
+                          });
+                        } on CameraPermissionException {
+                          setState(() => _hasCameraPermission = false);
+                          _showPermissionDeniedDialog();
+                        }
+                      },
                       child: Text('Request Permission'),
                     ),
                   ],

@@ -46,6 +46,10 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>يحتاج التطبيق إلى الوصول إلى الكاميرا لالتقاط الصور</string>
+	<string>This app requires camera access to preview and capture photos.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app requires microphone access for video recording.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app requires photo library access to save captured photos.</string>
 </dict>
 </plist>

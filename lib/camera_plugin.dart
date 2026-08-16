@@ -21,23 +21,69 @@ class CameraController {
   static bool _isInitialized = false;
   Stream<Uint8List>? _frameStream;
 
-  /// Initialize camera controller and check permissions
-  /// Throws [CameraPermissionException] if camera permission is not granted
+  /// Request camera permission and initialize the controller.
+  /// Calls [Permission.camera.request] internally so the OS dialog shows.
+  /// Falls back to native platform channel if permission_handler did not resolve.
+  /// Throws [CameraPermissionException] if permission is not granted.
   Future<void> initialize() async {
-    final status = await Permission.camera.status;
-
-    if (status.isDenied) {
-      throw CameraPermissionException(
-        'Camera permission is required to use this feature',
-      );
+    var status = await Permission.camera.status;
+    if (!status.isGranted) {
+      status = await Permission.camera.request();
     }
 
-    if (status.isPermanentlyDenied) {
+    if (status.isGranted) {
+      _isInitialized = true;
+      return;
+    }
+
+    // Native fallback (handles cases where iOS Podfile macros or platform channels differ)
+    try {
+      final nativeStatus = await _method.invokeMethod<String>('requestPermission');
+      if (nativeStatus == 'granted') {
+        _isInitialized = true;
+        return;
+      }
+    } catch (_) {
+      // Method channel fallback not available or failed
+    }
+
+    if (status.isDenied || status.isPermanentlyDenied) {
       throw CameraPermissionException(
-        'Camera permission is permanently denied. Please enable it in app settings.',
+        'Camera permission is required. '
+        '${status.isPermanentlyDenied ? "Please enable it in app settings." : ""}',
       );
     }
     _isInitialized = true;
+  }
+
+  /// Check whether camera permission is granted.
+  Future<bool> checkPermission() async {
+    final status = await Permission.camera.status;
+    if (status.isGranted) return true;
+    try {
+      final nativeStatus = await _method.invokeMethod<String>('checkPermission');
+      return nativeStatus == 'granted';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Explicitly request camera permission without initializing the controller.
+  Future<bool> requestPermission() async {
+    final status = await Permission.camera.request();
+    if (status.isGranted) return true;
+    try {
+      final nativeStatus = await _method.invokeMethod<String>('requestPermission');
+      return nativeStatus == 'granted';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Resets internal state so the controller can be re-initialized.
+  void reset() {
+    _isInitialized = false;
+    _frameStream = null;
   }
 
   /// Starts listening to the native stream.
@@ -156,8 +202,21 @@ class _CameraPreviewState extends State<CameraPreview> {
         },
       );
     }
-    // iOS stub for later
-    return const Center(child: Text('iOS not yet implemented'));
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return UiKitView(
+        viewType: 'camera_preview',
+        creationParams: {
+          'resolutionWidth': widget.initialWidth,
+          'resolutionHeight': widget.initialHeight,
+          'resolutionQuality': widget.initialQuality,
+          'maxResolution': widget.useMaxResolution,
+          'cameraType': widget.cameraType.name,
+          'frameFormat': widget.frameFormat.name,
+        },
+        creationParamsCodec: const StandardMessageCodec(),
+      );
+    }
+    return const Center(child: Text('Unsupported platform'));
   }
 
   @override
