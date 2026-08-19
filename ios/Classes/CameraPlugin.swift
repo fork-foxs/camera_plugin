@@ -18,8 +18,12 @@ public class CameraPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     // MARK: - FlutterPlugin Registration
 
     public static func register(with registrar: FlutterPluginRegistrar) {
-        let methodChannel = FlutterMethodChannel(
+        let controlChannel = FlutterMethodChannel(
             name: "camera_control",
+            binaryMessenger: registrar.messenger()
+        )
+        let pluginChannel = FlutterMethodChannel(
+            name: "camera_plugin",
             binaryMessenger: registrar.messenger()
         )
         let eventChannel = FlutterEventChannel(
@@ -27,9 +31,10 @@ public class CameraPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             binaryMessenger: registrar.messenger()
         )
         let instance = CameraPlugin()
-        instance.methodChannel = methodChannel
+        instance.methodChannel = controlChannel
         instance.eventChannel = eventChannel
-        registrar.addMethodCallDelegate(instance, channel: methodChannel)
+        registrar.addMethodCallDelegate(instance, channel: controlChannel)
+        registrar.addMethodCallDelegate(instance, channel: pluginChannel)
         eventChannel.setStreamHandler(instance)
 
         let factory = CameraPreviewFactory(messenger: registrar.messenger(), plugin: instance)
