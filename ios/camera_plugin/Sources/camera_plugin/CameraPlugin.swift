@@ -4,7 +4,7 @@ import AVFoundation
 import CoreImage
 import ImageIO
 
-public class CameraPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
+public class CustomCameraPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     private var methodChannel: FlutterMethodChannel?
     private var eventChannel: FlutterEventChannel?
     private var eventSink: FlutterEventSink?
@@ -26,7 +26,7 @@ public class CameraPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             name: "camera_stream",
             binaryMessenger: registrar.messenger()
         )
-        let instance = CameraPlugin()
+        let instance = CustomCameraPlugin()
         instance.methodChannel = methodChannel
         instance.eventChannel = eventChannel
         registrar.addMethodCallDelegate(instance, channel: methodChannel)
@@ -180,14 +180,14 @@ public class CameraPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         }
 
         guard let device = selectedDevice else {
-            print("CameraPlugin: Failed to get camera device for position \(position.rawValue)")
+            print("CustomCameraPlugin: Failed to get camera device for position \(position.rawValue)")
             session.commitConfiguration()
             return
         }
         self.currentCamera = device
 
         guard let input = try? AVCaptureDeviceInput(device: device) else {
-            print("CameraPlugin: Failed to create device input")
+            print("CustomCameraPlugin: Failed to create device input")
             session.commitConfiguration()
             return
         }
@@ -197,13 +197,23 @@ public class CameraPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
 
         let output = AVCaptureVideoDataOutput()
         output.alwaysDiscardsLateVideoFrames = true
-        output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+        if frameFormat == "nv21" {
+            output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
+        } else {
+            output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+        }
 
         let isFront = (position == .front)
         let handler = VideoOutputDelegate(plugin: self, frameFormat: frameFormat, quality: quality, isFront: isFront)
         output.setSampleBufferDelegate(handler, queue: captureQueue)
         if session.canAddOutput(output) {
             session.addOutput(output)
+            if let connection = output.connection(with: .video), connection.isVideoOrientationSupported {
+                connection.videoOrientation = .portrait
+                if isFront && connection.isVideoMirroringSupported {
+                    connection.isVideoMirrored = true
+                }
+            }
         }
         self.videoOutput = output
         self.delegateHandler = handler
@@ -252,7 +262,7 @@ public class CameraPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             }
             device.unlockForConfiguration()
         } catch {
-            print("CameraPlugin: Failed to toggle torch: \(error)")
+            print("CustomCameraPlugin: Failed to toggle torch: \(error)")
         }
     }
 
@@ -323,19 +333,22 @@ public class CameraPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
 // MARK: - Video Output Delegate (Frame Capture)
 
 class VideoOutputDelegate: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
-    private weak var plugin: CameraPlugin?
+    private weak var plugin: CustomCameraPlugin?
     private let frameFormat: String
     private let isFront: Bool
     private let lock = NSLock()
     private var _quality: Int
     private let ciContext = CIContext(options: [CIContextOption.useSoftwareRenderer: false])
 
-    init(plugin: CameraPlugin, frameFormat: String, quality: Int, isFront: Bool) {
+    private var frameCount = 0
+
+    init(plugin: CustomCameraPlugin, frameFormat: String, quality: Int, isFront: Bool) {
         self.plugin = plugin
         self.frameFormat = frameFormat
         self._quality = quality
         self.isFront = isFront
         super.init()
+        print("[KYC_DEBUG] [CameraPlugin iOS] VideoOutputDelegate initialized with frameFormat=\(frameFormat), isFront=\(isFront)")
     }
 
     var quality: Int {
@@ -352,23 +365,36 @@ class VideoOutputDelegate: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
-        guard let plugin = plugin else { return }
-        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        guard let plugin = plugin else {
+            print("[KYC_DEBUG] [CameraPlugin iOS] captureOutput dropped: plugin is NIL")
+            return
+        }
+        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            print("[KYC_DEBUG] [CameraPlugin iOS] captureOutput dropped: CMSampleBufferGetImageBuffer returned NIL")
+            return
+        }
+
+        frameCount += 1
+        let shouldLog = frameCount <= 5 || frameCount % 30 == 0
+        if shouldLog {
+            print("[KYC_DEBUG] [CameraPlugin iOS] captureOutput #\(frameCount): format=\(frameFormat)")
+        }
 
         if let jpegData = pixelBufferToJPEG(imageBuffer, quality: quality, isFront: isFront) {
+            if shouldLog {
+                print("[KYC_DEBUG] [CameraPlugin iOS] Successfully generated JPEG frame #\(frameCount) (\(jpegData.count) bytes)")
+            }
             plugin.sendFrame(jpegData)
+        } else {
+            print("[KYC_DEBUG] [CameraPlugin iOS] ERROR: pixelBufferToJPEG returned NIL for frame #\(frameCount)")
         }
     }
 
     private func pixelBufferToJPEG(_ pixelBuffer: CVPixelBuffer, quality: Int, isFront: Bool) -> Data? {
-        var ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-
-        // Rotate frame to portrait: back camera is .right (orientation 6), front camera is .leftMirrored (orientation 5)
-        let orientation: CGImagePropertyOrientation = isFront ? .leftMirrored : .right
-        ciImage = ciImage.oriented(orientation)
-
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
         guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) else { return nil }
         let uiImage = UIImage(cgImage: cgImage)
-        return uiImage.jpegData(compressionQuality: CGFloat(quality) / 100.0)
+        let compression = quality > 0 ? CGFloat(quality) / 100.0 : 0.8
+        return uiImage.jpegData(compressionQuality: compression)
     }
 }

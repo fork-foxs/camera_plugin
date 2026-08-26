@@ -11,7 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   plugin_platform_interface: ^2.1.8
-  permission_handler: ^12.0.3
+  permission_handler: ^13.0.1
 
 dev_dependencies:
   flutter_test:
@@ -39,7 +39,7 @@ flutter:
         package: com.fintechsys.camera_plugin
         pluginClass: CameraPlugin
       ios:
-        pluginClass: CameraPlugin
+        pluginClass: CustomCameraPlugin
 
   # To add assets to your plugin package, add an assets section, like this:
   # assets:

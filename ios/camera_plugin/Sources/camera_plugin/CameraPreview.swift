@@ -28,13 +28,13 @@ class CameraPreviewUIView: UIView {
 
 class CameraPreview: NSObject, FlutterPlatformView {
     private let _view: CameraPreviewUIView
-    private weak var plugin: CameraPlugin?
+    private weak var plugin: CustomCameraPlugin?
 
     init(
         frame: CGRect,
-        viewIdentifier viewId: Int,
+        viewIdentifier viewId: Int64,
         arguments args: Any?,
-        plugin: CameraPlugin
+        plugin: CustomCameraPlugin
     ) {
         self.plugin = plugin
         self._view = CameraPreviewUIView(frame: frame)

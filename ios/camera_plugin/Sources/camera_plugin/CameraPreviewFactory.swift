@@ -3,9 +3,9 @@ import UIKit
 
 class CameraPreviewFactory: NSObject, FlutterPlatformViewFactory {
     private let messenger: FlutterBinaryMessenger
-    private let plugin: CameraPlugin
+    private let plugin: CustomCameraPlugin
 
-    init(messenger: FlutterBinaryMessenger, plugin: CameraPlugin) {
+    init(messenger: FlutterBinaryMessenger, plugin: CustomCameraPlugin) {
         self.messenger = messenger
         self.plugin = plugin
         super.init()
@@ -13,7 +13,7 @@ class CameraPreviewFactory: NSObject, FlutterPlatformViewFactory {
 
     func create(
         withFrame frame: CGRect,
-        viewIdentifier viewId: Int,
+        viewIdentifier viewId: Int64,
         arguments args: Any?
     ) -> FlutterPlatformView {
         return CameraPreview(
@@ -24,7 +24,7 @@ class CameraPreviewFactory: NSObject, FlutterPlatformViewFactory {
         )
     }
 
-    func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
+    public func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
         return FlutterStandardMessageCodec.sharedInstance()
     }
 }

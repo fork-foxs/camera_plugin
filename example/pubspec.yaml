@@ -30,7 +30,7 @@ dependencies:
   cupertino_icons: ^1.0.9
   
   # Permission handler for camera access
-  permission_handler: ^12.0.3
+  permission_handler: ^13.0.1
 
 dev_dependencies:
   integration_test:
